@@ -31,14 +31,15 @@ public class group11_BS extends OfferingStrategy{
 		private BidSelector BSelector;
 		private double concConst = 0.005;
 		private double oppConst = 0.0;
-		OpponentModel model = null;
 		double concessionThreshold = 1.0;
 		Bid LastOpponentBid = null;
 		int pseudoPhase = 1;
 		double maxValue = 0.95;
-		int turn = 1;
+		int turn = 0;
 		private double oppmax = 0.0;
 		double minUtil = 0.68;
+		Bid opponentbestbid = null;
+		double opbestvalue = 0.0;
 		
 		public group11_BS() {
 		}
@@ -79,9 +80,9 @@ public class group11_BS extends OfferingStrategy{
 			*/
 		}
 		
-		public Bid initializeBid(BidSelector BSelector, OpponentModel model) {
+		public BidDetails initializeBid(BidSelector BSelector, OpponentModel model) {
 			TreeMap<Double, Bid> BidList2 = new TreeMap<Double, Bid>();
-			Bid ReturnBid = null;
+			BidDetails ReturnBidDetails = null;
 			
 			if (negotiationSession.getOpponentBidHistory().getHistory().isEmpty())
 			{
@@ -92,7 +93,7 @@ public class group11_BS extends OfferingStrategy{
 				}
 			    Object[] Keys = BidList2.keySet().toArray();
 				Object key = Keys[new Random().nextInt(Keys.length)];
-				ReturnBid = BidList2.get(key);
+				ReturnBidDetails = new BidDetails(BidList2.get(key),(double)key);
 			}
 			else
 			{
@@ -102,21 +103,21 @@ public class group11_BS extends OfferingStrategy{
 			        }
 				}
 				double minopp = 1.0;
-			    for (Bid bid: BidList2.values())
+			    for (Entry<Double, Bid> entry2 : BidList2.entrySet())
 			    {
-			    	if (model.getBidEvaluation(bid)<minopp) {
-			    		ReturnBid = bid;
-			    		minopp = model.getBidEvaluation(bid);
+			    	if (model.getBidEvaluation(entry2.getValue())<minopp) {
+			    		ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
+			    		minopp = model.getBidEvaluation(entry2.getValue());
 			    	}
 			    }
 			}
-			return ReturnBid;
+			return ReturnBidDetails;
 			// Return bid details instead of individual bid.
 		}
 		
-		public Bid makeConcession(double concessionThreshold, Bid lastBid, OpponentModel model, BidSelector BSelector, int pseudoPhase, double concConst, double oppConstant) {
+		public BidDetails makeConcession(double concessionThreshold, Bid lastBid, OpponentModel model, BidSelector BSelector, int pseudoPhase, double concConst, double oppConstant) {
 			double maxopp = 0.0;
-			Bid ReturnBid = null;
+			BidDetails ReturnBidDetails = null;
 			TreeMap<Double, Bid> BidList2 = new TreeMap<Double, Bid>();
 			
 			//double util= bidList.getLastBidDetails();
@@ -127,18 +128,18 @@ public class group11_BS extends OfferingStrategy{
 			        }
 			    }
 				
-				for (Bid bid: BidList2.values()) {
-					if (model.getBidEvaluation(bid)>= model.getBidEvaluation(lastBid) && 
-							model.getBidEvaluation(bid)<model.getBidEvaluation(lastBid)+oppConstant) {
-						ReturnBid = bid;
+				for (Entry<Double, Bid> entry2: BidList2.entrySet()) {
+					if (model.getBidEvaluation(entry2.getValue())>= model.getBidEvaluation(lastBid) && 
+							model.getBidEvaluation(entry2.getValue())<model.getBidEvaluation(lastBid)+oppConstant) {
+						ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
 						break;
 					}
 				}
-				if (ReturnBid == null) {
-					for (Bid bid: BidList2.values()) {
-						if (model.getBidEvaluation(bid) > maxopp && model.getBidEvaluation(bid) < model.getBidEvaluation(lastBid)+oppConstant) {
-							ReturnBid = bid;
-							maxopp = model.getBidEvaluation(bid);
+				if (ReturnBidDetails == null) {
+					for (Entry<Double, Bid> entry2: BidList2.entrySet()) {
+						if (model.getBidEvaluation(entry2.getValue()) > maxopp && model.getBidEvaluation(entry2.getValue()) < model.getBidEvaluation(lastBid)+oppConstant) {
+							ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
+							maxopp = model.getBidEvaluation(entry2.getValue());
 						}
 					}
 				}
@@ -150,25 +151,25 @@ public class group11_BS extends OfferingStrategy{
 			        }
 			    }
 				
-				for (Bid bid: BidList2.values()){
-					if (model.getBidEvaluation(bid)>maxopp) {
-						ReturnBid = bid;
-						maxopp = model.getBidEvaluation(bid);
+				for (Entry<Double, Bid> entry2: BidList2.entrySet()){
+					if (model.getBidEvaluation(entry2.getValue())>maxopp) {
+						ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
+						maxopp = model.getBidEvaluation(entry2.getValue());
 					}
 				}
 			}
 			
-			return ReturnBid;
+			return ReturnBidDetails;
 		}
 		
-		public Bid SelectBid(NegotiationSession negoSession) {
+		public BidDetails SelectBid(NegotiationSession negoSession) {
 			BSelector = new BidSelector((AdditiveUtilitySpace) negotiationSession.getUtilitySpace());
 			Bid LastBid = negoSession.getOwnBidHistory().getLastBid();
-			Bid bid = null;
-			Bid opponentbestbid = null;
+			BidDetails ReturnBidDetails = null;
 			Entry<Double,Bid> opponentbestentry;
-			double opbestvalue = 0.0;
 			double opponentLowering;
+			OpponentModel model = this.opponentModel;
+			turn++;
 			if (!negotiationSession.getOpponentBidHistory().getHistory().isEmpty()) {
 				Bid opponentLastBid = negotiationSession.getOpponentBidHistory().getLastBidDetails().getBid();
 				try {
@@ -192,52 +193,48 @@ public class group11_BS extends OfferingStrategy{
 			}
 			
 			if (turn == 1) {
-				bid = initializeBid(BSelector,model);
-				concessionThreshold = negotiationSession.getUtilitySpace().getUtility(bid);
+				ReturnBidDetails = initializeBid(BSelector,model);
+				concessionThreshold = negotiationSession.getUtilitySpace().getUtility(ReturnBidDetails.getBid());
 			} else if (turn < 150) {
 				oppmax = model.getBidEvaluation(BSelector.getBidList().floorEntry(maxValue).getValue());
 				concConst = (maxValue - concessionThreshold) / (150-turn);
 				concessionThreshold += concConst;
 				oppConst = (oppmax-model.getBidEvaluation(LastBid)) / (150-turn);
-				bid = makeConcession(concessionThreshold, LastBid, model, BSelector, 1, concConst, oppConst);
+				ReturnBidDetails = makeConcession(concessionThreshold, LastBid, model, BSelector, 1, concConst, oppConst);
 			} else if (turn < 175) {
 				List<BidDetails> oppBidHistory = negotiationSession.getOpponentBidHistory().getHistory();
 				double oppUtilSecondLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-2).getBid());
 				double oppUtilLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-1).getBid());
 				opponentLowering = oppUtilSecondLast - oppUtilLast;
 				concessionThreshold -= opponentLowering;
-				bid = makeConcession(concessionThreshold, LastBid, model, BSelector, 0, 0.0, 0.0);
+				ReturnBidDetails = makeConcession(concessionThreshold, LastBid, model, BSelector, 0, 0.0, 0.0);
 			} else if (turn < 178) {
 				concessionThreshold += (0.9-concessionThreshold) / (178-turn);
-				bid = makeConcession(concessionThreshold, LastBid, model, BSelector, 0, 0.0, 0.0);
+				ReturnBidDetails = makeConcession(concessionThreshold, LastBid, model, BSelector, 0, 0.0, 0.0);
 			} else {
 				if (opbestvalue > minUtil) {
-					bid = opponentbestbid;
+					ReturnBidDetails = new BidDetails(opponentbestbid,opbestvalue);
 				} else {
-					bid = makeConcession(minUtil, LastBid, model, BSelector, 0, 0.0, 0.0);
+					ReturnBidDetails = makeConcession(minUtil, LastBid, model, BSelector, 0, 0.0, 0.0);
 				}
 			}
 			
-			turn++;
-			return bid;
+			return ReturnBidDetails;
 		}
 
 		@Override
 		public BidDetails determineOpeningBid() {
-			// TODO Auto-generated method stub
-			return null;
+			return SelectBid(negotiationSession);
 		}
 
 		@Override
 		public BidDetails determineNextBid() {
-			// TODO Auto-generated method stub
-			return null;
+			return SelectBid(negotiationSession);
 		}
 
 		@Override
 		public String getName() {
-			// TODO Auto-generated method stub
-			return null;
+			return "Dolos";
 		}
 	
 }
