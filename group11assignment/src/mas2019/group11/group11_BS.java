@@ -40,6 +40,7 @@ public class group11_BS extends OfferingStrategy{
 		double minUtil = 0.75;
 		Bid opponentbestbid = null;
 		double opbestvalue = 0.0;
+		int secondPlayer = 0;
 		
 		public group11_BS() {
 		}
@@ -136,6 +137,7 @@ public class group11_BS extends OfferingStrategy{
 							model.getBidEvaluation(entry2.getValue())<oppConcThreshold+oppConstant) {
 						ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
 						maxopp = model.getBidEvaluation(entry2.getValue());
+						System.out.println("added a bid with estimated opp util "+maxopp+" while the oppThreshold is "+oppConcThreshold);
 					}
 				}
 				
@@ -200,11 +202,11 @@ public class group11_BS extends OfferingStrategy{
 				}
 			}
 			
-			if (turn < 4) {
+			if (turn+secondPlayer < 4) {
 				ReturnBidDetails = initializeBid(BSelector,model);
 				concessionThreshold = negotiationSession.getUtilitySpace().getUtility(ReturnBidDetails.getBid());
-				oppConcThreshold = model.getBidEvaluation(ReturnBidDetails.getBid());
-			} else if (turn < 155) {
+				System.out.println("OppConcThreshold set to " + oppConcThreshold);
+			} else if (turn+secondPlayer < 155) {
 				double maxopp = 0.0;
 				BidDetails MaxBidDetails = null;
 				for (Entry<Double, Bid> entry: HighBidList.entrySet()){
@@ -218,11 +220,17 @@ public class group11_BS extends OfferingStrategy{
 				System.out.println("Estimated opp utility last turn is" + model.getBidEvaluation(LastBid));
 				concConst = (MaxBidDetails.getMyUndiscountedUtil() - concessionThreshold) / (155-turn);
 				concessionThreshold += concConst;
-				oppConst = (oppmax-oppConcThreshold) / (155-turn);
-				oppConcThreshold += oppConst;
-				System.out.println("Now going into makeConcession, with concConst" + concConst + "and oppConst" + oppConst + "and concession threshold" + concessionThreshold);
+				if (turn < 15) {
+					oppConcThreshold = model.getBidEvaluation(negotiationSession.getOwnBidHistory().getHistory().get(2).getBid());
+					oppConst = (oppmax-oppConcThreshold) / (152-secondPlayer);
+					oppConcThreshold += (turn-secondPlayer - 3)*oppConst;
+				} else {
+					oppConst = (oppmax-oppConcThreshold) / (155-turn-secondPlayer);
+					oppConcThreshold += oppConst;
+				}
+				System.out.println("Now going into makeConcession, with concConst" + concConst + "and oppConst" + oppConst + "and concession threshold" + concessionThreshold + "and opp conc threshold "+oppConcThreshold);
 				ReturnBidDetails = makeConcession(concessionThreshold,oppConcThreshold, LastBid, lastBidUtil, model, BSelector, 1, concConst, oppConst);
-			} else if (turn < 175) {
+			} else if (turn+secondPlayer < 175) {
 				List<BidDetails> oppBidHistory = negotiationSession.getOpponentBidHistory().getHistory();
 				double oppUtilSecondLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-2).getBid());
 				double oppUtilLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-1).getBid());
@@ -236,11 +244,11 @@ public class group11_BS extends OfferingStrategy{
 					concessionThreshold -= opponentLowering;
 				}
 				ReturnBidDetails = makeConcession(concessionThreshold, 1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
-			} else if (turn < 178) {
-				concessionThreshold += (0.9-concessionThreshold) / (178-turn);
+			} else if (turn+secondPlayer < 178) {
+				concessionThreshold += (0.9-concessionThreshold) / (178-turn-secondPlayer);
 				ReturnBidDetails = makeConcession(concessionThreshold, 1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
 			} else {
-				concessionThreshold = minUtil + ((180-turn)*(0.9-minUtil));
+				concessionThreshold = minUtil + ((180-turn-secondPlayer)*(0.9-minUtil));
 				if (opbestvalue > concessionThreshold) {
 					ReturnBidDetails = new BidDetails(opponentbestbid,opbestvalue);
 				} else {
@@ -259,6 +267,9 @@ public class group11_BS extends OfferingStrategy{
 
 		@Override
 		public BidDetails determineOpeningBid() {
+			if (negotiationSession.getOpponentBidHistory().getHistory().isEmpty()) {
+				secondPlayer =1;
+			}
 			return SelectBid(negotiationSession);
 		}
 
