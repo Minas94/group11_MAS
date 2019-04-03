@@ -14,6 +14,7 @@ import genius.core.boaframework.OfferingStrategy;
 import genius.core.boaframework.OpponentModel;
 import genius.core.issue.Issue;
 import genius.core.issue.Value;
+import genius.core.uncertainty.BidRanking;
 import genius.core.uncertainty.OutcomeComparison;
 import genius.core.uncertainty.UserModel;
 
@@ -99,14 +100,17 @@ public class group11_AS extends AcceptanceStrategy {
 			
 			List<Bid> bidRanking = myUserModel.getBidRanking().getBidOrder();
 			
+			
 			double minRankedValue = myUserModel.getBidRanking().getLowUtility();
 			double maxRankedValue = myUserModel.getBidRanking().getHighUtility();
 			//index size-1 (last)
 			Bid bestRankedBid = myUserModel.getBidRanking().getMaximalBid();
 			//index 0 (first)
 			Bid worstRankedBid = myUserModel.getBidRanking().getMinimalBid();
-			List<Issue> bestIssues = myUserModel.getBidRanking().getMaximalBid().getIssues();
-			List<Issue> worstIssues = myUserModel.getBidRanking().getMinimalBid().getIssues();
+			
+			
+			List<Issue> listOfIssues = myUserModel.getBidRanking().getMaximalBid().getIssues();
+			//List<Issue> worstIssues = myUserModel.getBidRanking().getMinimalBid().getIssues();
 			
 			
 			
@@ -116,38 +120,47 @@ public class group11_AS extends AcceptanceStrategy {
 			
 			
 			int j =0;
+			List<Issue> listIssue =bidRanking.get(0).getIssues();
+			
 			
 				for(OutcomeComparison pair : bidCompare) {
 					j++;
 					Bid bid1 = pair.getBid1();
 					Bid bid2 = pair.getBid2();
-					int result = pair.getComparisonResult();
-					int equalValues = bid1.countEqualValues(bid2);
 					
+					//int result = pair.getComparisonResult();
+					//int equalValues = bid1.countEqualValues(bid2);
+					List<Value> listValue1 = new ArrayList<Value>();
+					List<Value> listValue2 = new ArrayList<Value>();
+					System.out.println(j);
 					
-					for(int i = 0; i< bestIssues.size()-1; i++) {
+					for(int i = 0; i< listOfIssues.size()-1; i++) {
 						
-						Issue issue = bestIssues.get(i);
-						Value value = myUserModel.getBidRanking().getMaximalBid().getValue(issue);
+						
+						Issue issue = listOfIssues.get(i);
+						Value valueMaximalBid = myUserModel.getBidRanking().getMaximalBid().getValue(issue);
+						
+						Value value1 = bid1.getValue(issue);
+						listValue1.add(value1);
+						
+						Value value2 = bid2.getValue(issue);
+						
+						listValue2.add(value2);
+						
 						int IssueID = issue.getNumber();
 						
 						String IssueName = issue.getName();
-						System.out.println(IssueID + " " + IssueName+" value is "+ value.toString() + " max value is  "+maxRankedValue);
+						
+						
+						System.out.println(IssueID + " " + IssueName+" value of issue Bd1 is "+ value1.toString()
+						+" value of issue Bd2 is "+value2.toString());
+						
+						
 					
 					}
 					
-					for(int k = 0; k< worstIssues.size()-1; k++) {
-						Issue issue = worstIssues.get(k);
-						Value value = myUserModel.getBidRanking().getMaximalBid().getValue(issue);
-						int IssueID = issue.getNumber();
-						
-						
-						String IssueName = issue.getName();
-						System.out.println(IssueID + " " + IssueName+" value is "+ value.toString()+ " min is  "+minRankedValue);
-						
-					
-					}
-					if(j>2)return Actions.Break;
+				
+					if(j>5)return Actions.Break;
 				}
 		
 		}
