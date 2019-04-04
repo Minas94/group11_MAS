@@ -18,8 +18,11 @@ import genius.core.issue.Objective;
 import genius.core.issue.Value;
 import genius.core.issue.ValueDiscrete;
 import genius.core.utility.AdditiveUtilitySpace;
+import genius.core.utility.AbstractUtilitySpace;
 import genius.core.utility.Evaluator;
 import genius.core.utility.EvaluatorDiscrete;
+
+import mas2019.group11.group11_PU;
 
 /**
  * Slight adaption of the BOA framework implementation of the HardHeaded Frequecy Model.
@@ -52,8 +55,8 @@ public class group11_OM extends OpponentModel {
 			learnCoef = 0.2;
 		}
 		learnValueAddition = 1;
-		opponentUtilitySpace = (AdditiveUtilitySpace) negotiationSession
-				.getUtilitySpace().copy();
+		AbstractUtilitySpace utilitySpace = group11_PU.makeUtilitySpace(negotiationSession.getDomain(), negotiationSession.getUtilitySpace(), negotiationSession.getUserModel());
+		opponentUtilitySpace = (AdditiveUtilitySpace) utilitySpace.copy();
 		amountOfIssues = opponentUtilitySpace.getDomain().getIssues().size();
 		/*
 		 * This is the value to be added to weights of unchanged issues before
@@ -118,11 +121,11 @@ public class group11_OM extends OpponentModel {
 		 * less reliable.
 		 */
 		goldenValue *= Math.min(1.0, 1.0-((double)negotiationSession.getOpponentBidHistory().size()-155.0)/100.0);
-		System.out.println("The goldenValue is now "+ goldenValue);
+		//System.out.println("The goldenValue is now "+ goldenValue);
 		if (negotiationSession.getOpponentBidHistory().size()>155) {
 			boolean val = new Random().nextInt((int)((200-negotiationSession.getOpponentBidHistory().size())/10))==0;
 			if (val == true) {
-				System.out.println("We got there.");
+				//System.out.println("We got there.");
 				learnValueAddition = 0;
 			} else {
 				learnValueAddition = 1;

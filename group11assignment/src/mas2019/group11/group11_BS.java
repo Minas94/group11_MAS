@@ -1,25 +1,24 @@
 package mas2019.group11;
 
-import genius.core.bidding.BidDetails;
-import genius.core.boaframework.OfferingStrategy;
-import java.util.List;
-import java.util.ArrayList;
+
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import genius.core.Bid;
-import genius.core.boaframework.NegotiationSession;
-import genius.core.boaframework.NoModel;
-import genius.core.boaframework.OMStrategy;
-import genius.core.boaframework.OpponentModel;
-import genius.core.utility.AdditiveUtilitySpace;
 import java.util.Random;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
+import genius.core.Bid;
+import genius.core.bidding.BidDetails;
+import genius.core.boaframework.NegotiationSession;
+import genius.core.boaframework.OMStrategy;
+import genius.core.boaframework.OfferingStrategy;
+import genius.core.boaframework.OpponentModel;
+import genius.core.utility.AbstractUtilitySpace;
+import genius.core.utility.AdditiveUtilitySpace;
 import negotiator.boaframework.offeringstrategy.anac2011.hardheaded.BidSelector;
 import negotiator.boaframework.opponentmodel.DefaultModel;
-import negotiator.boaframework.opponentmodel.HardHeadedFrequencyModel;
 import negotiator.boaframework.sharedagentstate.anac2011.HardHeadedSAS;
 
 public class group11_BS extends OfferingStrategy{
@@ -41,6 +40,8 @@ public class group11_BS extends OfferingStrategy{
 		Bid opponentbestbid = null;
 		double opbestvalue = 0.0;
 		int secondPlayer = 1;
+		int muchUncertainty = 0;
+		AbstractUtilitySpace utilitySpace = null;
 		
 		public group11_BS() {
 		}
@@ -49,7 +50,7 @@ public class group11_BS extends OfferingStrategy{
 		public void init(NegotiationSession negotiationSession, OpponentModel model, OMStrategy oms,
 				Map<String, Double> parameters) throws Exception {
 			if (model instanceof DefaultModel) {
-				model = new HardHeadedFrequencyModel();
+				model = new group11_OM();
 				model.init(negotiationSession, null);
 				oms.setOpponentModel(model);
 			}
@@ -58,14 +59,32 @@ public class group11_BS extends OfferingStrategy{
 		
 		public void initializeAgent(NegotiationSession negoSession, OpponentModel model, OMStrategy oms) {
 			this.negotiationSession = negoSession;
-			BSelector = new BidSelector((AdditiveUtilitySpace) negotiationSession.getUtilitySpace());
+			if (negotiationSession.getUserModel() != null) {
+				if (negotiationSession.getUserModel().getBidRanking().getSize() < 16) {
+					muchUncertainty = 1;
+				}
+			}
+			utilitySpace = group11_PU.makeUtilitySpace(negotiationSession.getDomain(),negotiationSession.getUtilitySpace(),negotiationSession.getUserModel());
+			BSelector = new BidSelector((AdditiveUtilitySpace) utilitySpace);
+			/*
+			if (muchUncertainty == 1) {
+				TreeMap <Double,Bid> newBidList = new TreeMap<Double,Bid>();
+				for (Entry<Double,Bid> entry: BSelector.getBidList().entrySet()) {
+					if (entry.getKey()>0.7 && entry.getKey()<0.87) {
+						newBidList.put(entry.getKey(), entry.getValue());
+					}
+				}
+				BSelector.setBidList(newBidList);
+			}
+			*/
+			System.out.println("Highest bid in BidSelector is" + BSelector.getBidList().lastEntry().getKey());
 			offerQueue = new LinkedList<Entry<Double, Bid>>();
 			this.opponentModel = model;
 			this.omStrategy = oms;
 			helper = new HardHeadedSAS(negoSession);
 			Entry<Double, Bid> highestBid = BSelector.getBidList().lastEntry();
 			try {
-				maxUtil = negotiationSession.getUtilitySpace().getUtility(highestBid.getValue());
+				maxUtil = utilitySpace.getUtility(highestBid.getValue());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -89,9 +108,20 @@ public class group11_BS extends OfferingStrategy{
 			{
 				for (Entry<Double, Bid> entry : BSelector.getBidList().entrySet()) {
 				    if (entry.getKey().doubleValue() >= 0.75 && entry.getKey().doubleValue() <= 0.8) {
-				    	System.out.println("Selected a bid with value "+ entry.getKey());
+				    	//System.out.println("Selected a bid with value "+ entry.getKey());
 				        BidList2.put(entry.getKey(), entry.getValue());
 				    }
+				}
+				if (BidList2.isEmpty()) {
+					int size = BSelector.getBidList().size();
+					int minimum = (int)(0.75*(double)size);
+					int maximum = (int)(0.8*(double)size);
+					double from = (double)BSelector.getBidList().keySet().toArray()[minimum];
+					double to = (double)BSelector.getBidList().keySet().toArray()[maximum];
+					SortedMap<Double,Bid> submap = BSelector.getBidList().subMap(from,to);
+					for (double key: submap.keySet()) {
+						BidList2.put(key, submap.get(key));
+					}
 				}
 			    Object[] Keys = BidList2.keySet().toArray();
 				Object key = Keys[new Random().nextInt(Keys.length)];
@@ -99,25 +129,35 @@ public class group11_BS extends OfferingStrategy{
 			}
 			else
 			{
-				System.out.println("At leat we got here.");
+				//System.out.println("At leat we got here.");
 				for (Entry<Double, Bid> entry : BSelector.getBidList().entrySet()) {
 			        if (entry.getKey().doubleValue() >= 0.75) {
 			            BidList2.put(entry.getKey(), entry.getValue());
 			        }
 				}
+				if (BidList2.isEmpty()) {
+					int size = BSelector.getBidList().size();
+					int minimum = (int)(0.75*(double)size);
+					int maximum = (int)(1*(double)size);
+					double from = (double)BSelector.getBidList().keySet().toArray()[minimum];
+					double to = (double)BSelector.getBidList().keySet().toArray()[maximum-1];
+					SortedMap<Double,Bid> submap = BSelector.getBidList().subMap(from,to);
+					for (double key: submap.keySet()) {
+						BidList2.put(key, submap.get(key));
+					}
+				}
 				double minopp = 1.1;
 			    for (Entry<Double, Bid> entry2 : BidList2.entrySet())
 			    {
-			    	System.out.println("We did get into the for loop with an entry with estimated opp value" + model.getBidEvaluation(entry2.getValue()));
 			    	if (model.getBidEvaluation(entry2.getValue())<minopp) {
 			    		ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
 			    		minopp = model.getBidEvaluation(entry2.getValue());
-			    		System.out.println("Selected a bid with value "+ entry2.getKey() + "for us and value "+ minopp + "for the opponent.");
+			    		//System.out.println("Selected a bid with value "+ entry2.getKey() + "for us and value "+ minopp + "for the opponent.");
 			    	}
 			    }
 			}
 			if(ReturnBidDetails == null) {
-				System.out.println("empty bid");
+				//System.out.println("empty bid");
 			}
 			//System.out.println("The last bid has value " + ReturnBidDetails.getMyUndiscountedUtil() + "for us and value "+ model.getBidEvaluation(ReturnBidDetails.getBid()) + "for the opponent.");
 			return ReturnBidDetails;
@@ -144,7 +184,7 @@ public class group11_BS extends OfferingStrategy{
 							model.getBidEvaluation(entry2.getValue())<oppConcThreshold+oppConstant) {
 						ReturnBidDetails = new BidDetails(entry2.getValue(),entry2.getKey());
 						maxopp = model.getBidEvaluation(entry2.getValue());
-						System.out.println("added a bid with estimated opp util "+maxopp+" while the oppThreshold is "+oppConcThreshold);
+						//System.out.println("added a bid with estimated opp util "+maxopp+" while the oppThreshold is "+oppConcThreshold);
 					}
 				}
 				
@@ -180,25 +220,36 @@ public class group11_BS extends OfferingStrategy{
 			for (Entry<Double, Bid> entry : BSelector.getBidList().entrySet()) {
 		        if (entry.getKey().doubleValue() >= maxValue) {
 		            HighBidList.put(entry.getKey(), entry.getValue());
+		            //System.out.println("Something was put in HighBidList");
 		        }
 		    }
+			if (HighBidList.isEmpty()) {
+				int size = BSelector.getBidList().size();
+				int minimum = (int)(maxValue*(double)size);
+				int maximum = (int)(1.0*(double)size);
+				double from = (double)BSelector.getBidList().keySet().toArray()[minimum];
+				double to = (double)BSelector.getBidList().keySet().toArray()[maximum-1];
+				SortedMap<Double,Bid> submap = BSelector.getBidList().subMap(from,to);
+				for (double key: submap.keySet()) {
+					HighBidList.put(key, submap.get(key));
+				}
+			}
 			turn++;
 			if (turn != 1) {
 				LastBid = negoSession.getOwnBidHistory().getLastBid();
-				lastBidUtil = negoSession.getOwnBidHistory().getLastBidDetails().getMyUndiscountedUtil();
+				lastBidUtil = utilitySpace.getUtility(negoSession.getOwnBidHistory().getLastBidDetails().getBid());
 			}
 			if (!negotiationSession.getOpponentBidHistory().getHistory().isEmpty()) {
 				Bid opponentLastBid = negotiationSession.getOpponentBidHistory().getLastBidDetails().getBid();
 				try {
 					if (opponentbestbid == null)
 						opponentbestbid = opponentLastBid;
-					else if (negotiationSession.getUtilitySpace().getUtility(opponentLastBid) > negotiationSession
-							.getUtilitySpace().getUtility(opponentbestbid)) {
+					else if (utilitySpace.getUtility(opponentLastBid) > utilitySpace.getUtility(opponentbestbid)) {
 						opponentbestbid = opponentLastBid;
 					}
 
 					opbestvalue = BSelector.getBidList()
-							.floorEntry(negotiationSession.getUtilitySpace().getUtility(opponentbestbid)).getKey();
+							.floorEntry(utilitySpace.getUtility(opponentbestbid)).getKey();
 
 					while (!BSelector.getBidList().floorEntry(opbestvalue).getValue().equals(opponentbestbid)) {
 						opbestvalue = BSelector.getBidList().lowerEntry(opbestvalue).getKey();
@@ -211,20 +262,22 @@ public class group11_BS extends OfferingStrategy{
 			
 			if (turn+secondPlayer < 4) {
 				ReturnBidDetails = initializeBid(BSelector,model);
-				concessionThreshold = negotiationSession.getUtilitySpace().getUtility(ReturnBidDetails.getBid());
-				System.out.println("OppConcThreshold set to " + oppConcThreshold);
+				concessionThreshold = utilitySpace.getUtility(ReturnBidDetails.getBid());
+				//System.out.println("OppConcThreshold set to " + oppConcThreshold);
 			} else if (turn+secondPlayer < 155) {
 				double maxopp = 0.0;
 				BidDetails MaxBidDetails = null;
 				for (Entry<Double, Bid> entry: HighBidList.entrySet()){
+					//System.out.println("All fine so far: high bid list still exists.");
 					if (model.getBidEvaluation(entry.getValue())>maxopp) {
 						MaxBidDetails = new BidDetails(entry.getValue(),entry.getKey());
+						//System.out.println("We are here. But is there a maxbiddetails?");
 						maxopp = model.getBidEvaluation(entry.getValue());
 					}
 				}
 				oppmax = maxopp;
-				System.out.println("Estimated oppmax is" + oppmax + ", estimated own max is" + MaxBidDetails.getMyUndiscountedUtil());
-				System.out.println("Estimated opp utility last turn is" + model.getBidEvaluation(LastBid));
+				//System.out.println("Estimated oppmax is" + oppmax + ", estimated own max is" + MaxBidDetails.getMyUndiscountedUtil());
+				//System.out.println("Estimated opp utility last turn is" + model.getBidEvaluation(LastBid));
 				concConst = (MaxBidDetails.getMyUndiscountedUtil() - concessionThreshold) / (155-turn);
 				concessionThreshold += concConst;
 				if (turn < 15) {
@@ -235,14 +288,14 @@ public class group11_BS extends OfferingStrategy{
 					oppConst = (oppmax-oppConcThreshold) / (155-turn-secondPlayer);
 					oppConcThreshold += oppConst;
 				}
-				System.out.println("Now going into makeConcession, with concConst" + concConst + "and oppConst" + oppConst + "and concession threshold" + concessionThreshold + "and opp conc threshold "+oppConcThreshold);
+				//System.out.println("Now going into makeConcession, with concConst" + concConst + "and oppConst" + oppConst + "and concession threshold" + concessionThreshold + "and opp conc threshold "+oppConcThreshold);
 				ReturnBidDetails = makeConcession(concessionThreshold,oppConcThreshold, LastBid, lastBidUtil, model, BSelector, 1, concConst, oppConst);
 			} else if (turn+secondPlayer < 173) {
 				List<BidDetails> oppBidHistory = negotiationSession.getOpponentBidHistory().getHistory();
 				double oppUtilSecondLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-2).getBid());
 				double oppUtilLast = model.getBidEvaluation(oppBidHistory.get(oppBidHistory.size()-1).getBid());
 				opponentLowering = oppUtilSecondLast - oppUtilLast;
-				System.out.println("The opponent is believed to have lowered by"+opponentLowering);
+				//System.out.println("The opponent is believed to have lowered by"+opponentLowering);
 				if (opponentLowering > 0.025) {
 					concessionThreshold -= 0.025;
 				} else if (opponentLowering < -0.025) {
@@ -262,17 +315,24 @@ public class group11_BS extends OfferingStrategy{
 					ReturnBidDetails = makeConcession(concessionThreshold, 1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
 				}
 			} else {
-				System.out.println("Last turn.");
+				//System.out.println("Last turn.");
+				
 				double oppUtilLast = model.getBidEvaluation(negotiationSession.getOpponentBidHistory().getHistory().get(negotiationSession.getOpponentBidHistory().size()-1).getBid());
-				ReturnBidDetails = makeConcession(minUtil,1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
+				double ownUtilLast = negotiationSession.getOwnBidHistory().getLastBidDetails().getMyUndiscountedUtil();
+				ReturnBidDetails = makeConcession(ownUtilLast,1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
 				if (model.getBidEvaluation(ReturnBidDetails.getBid())>0.95*oppUtilLast) {
-					System.out.println("Got a bid with utility higher than 0.75");
+					//System.out.println("Got a bid with utility higher than 0.75");
 					return ReturnBidDetails;
 				} else {
 					BidDetails DiscountedBid = null;
-					for (double d = 0.025;d<0.3;d+=0.025) {
-						DiscountedBid = makeConcession(minUtil-d,1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
-						System.out.println("Found a discounted bid with utility "+DiscountedBid.getMyUndiscountedUtil());
+					for (double d = 0.025;ownUtilLast-d>0.45;d+=0.025) {
+						DiscountedBid = makeConcession(ownUtilLast-d,1.0, LastBid, lastBidUtil, model, BSelector, 0, 0.0, 0.0);
+						//System.out.println("Found a discounted bid with utility "+DiscountedBid.getMyUndiscountedUtil());
+						if (model.getBidEvaluation(ReturnBidDetails.getBid())>0.95*oppUtilLast) {
+							//System.out.println("Got a bid with utility higher than 0.75");
+							ReturnBidDetails = DiscountedBid;
+							break;
+						}
 						if (model.getBidEvaluation(DiscountedBid.getBid())>1.3*DiscountedBid.getMyUndiscountedUtil()) {
 							break;
 						} else {
@@ -283,10 +343,10 @@ public class group11_BS extends OfferingStrategy{
 			}
 			
 			if (ReturnBidDetails != null) {
-				System.out.println("The bid utility of turn" + turn + "is:" + ReturnBidDetails.getMyUndiscountedUtil());
+				//System.out.println("The bid utility of turn" + turn + "is:" + ReturnBidDetails.getMyUndiscountedUtil());
 				return ReturnBidDetails;
 			} else {
-				System.out.println("The failed bid utility of turn" + turn + "is:" + negoSession.getOwnBidHistory().getLastBidDetails().getMyUndiscountedUtil());
+				//System.out.println("The failed bid utility of turn" + turn + "is:" + negoSession.getOwnBidHistory().getLastBidDetails().getMyUndiscountedUtil());
 				return negoSession.getOwnBidHistory().getLastBidDetails();
 			}
 		}
@@ -302,7 +362,7 @@ public class group11_BS extends OfferingStrategy{
 		@Override
 		public BidDetails determineNextBid() {
 			BidDetails returnBid = SelectBid(negotiationSession);
-			System.out.println("The bid utility of the return bid is" + negotiationSession.getUtilitySpace().getUtility(returnBid.getBid()));
+			System.out.println("The bid utility of the return bid in turn " + turn + " is " + utilitySpace.getUtility(returnBid.getBid()));
 			return returnBid;
 		}
 
