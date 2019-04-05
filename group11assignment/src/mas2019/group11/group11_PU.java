@@ -26,6 +26,14 @@ import genius.core.uncertainty.UserModel;
 import ilog.concert.*;
 import ilog.cplex.*;
 
+/* This class estimates a linear utility space given a limited set of ranked bids.
+ * It does so by treating the problem as a linear optimisation problem, based on
+ * the method outlined in Tsimpoukis et al. 2018, except that the constraints are
+ * adapted to fit the specific user model given in the current problem.
+ * The class works quite well for bid samples of size 20 and higher, but not very
+ * well for small bid samples of e.g. size 10.
+ */
+
 public abstract class group11_PU {
 	
 	public static AbstractUtilitySpace estimateUtilitySpace(Domain domain, UserModel userModel)
@@ -59,9 +67,9 @@ public abstract class group11_PU {
 		}
 		for (int i=0; i<numberIssues; i++) {
 			ValueDiscrete[] printArray = valueArrayList.get(i);
-			for (int j=0; j<printArray.length; j++) {
-				System.out.println("We have the value " + printArray[j].toString() + " in the value array list.");
-			}
+			//for (int j=0; j<printArray.length; j++) {
+				//System.out.println("We have the value " + printArray[j].toString() + " in the value array list.");
+			//}
 		}
 		BidRanking bidRanking = userModel.getBidRanking();
 		int numberBids = bidRanking.getSize();
@@ -108,7 +116,7 @@ public abstract class group11_PU {
 			}
 			model.addMinimize(expression);
 			
-			System.out.println("Step 1 check.");
+			//System.out.println("Step 1 check.");
 			
 			/* Step two: input the constraints. Note that the positivity constraints are already contained in the definition of the unknown variables, therefore
 			 * we do not explicitly have to add the constraints that the slack variables and the phi-variables should be positive.
@@ -181,7 +189,7 @@ public abstract class group11_PU {
 			}
 			model.addEq(constraint5, 1.0);
 			
-			System.out.println("Step 2 check.");
+			//System.out.println("Step 2 check.");
 			
 			/* Step three: solve the linear optimisation problem. */
 			boolean solved = model.solve();
@@ -191,7 +199,7 @@ public abstract class group11_PU {
 				 * its associated phi-value. (Since the phi-value equals the product of the weight and the evaluation, this
 				 * will lead to the right utility estimates.
 				 */
-				System.out.println("Problem solved.");
+				//System.out.println("Problem solved.");
 				AdditiveUtilitySpaceFactory utilSpace = new AdditiveUtilitySpaceFactory(domain);
 				index = 0;
 				for (Issue issue: issues) {
@@ -222,48 +230,39 @@ public abstract class group11_PU {
 					 
 					
 					double averagePhi = totalPhi / discValues.size();
-					System.out.println("the average value of the issue ("+issue+") is: "+averagePhi);
+					//System.out.println("the average value of the issue ("+issue+") is: "+averagePhi);
 					for (ValueDiscrete value: discValues) {
 						int valueIndex = Arrays.asList(valueArrayList.get(index)).indexOf(value);
-						System.out.println("we have the value "+value+" with index "+valueIndex);
+						//System.out.println("we have the value "+value+" with index "+valueIndex);
 						double valueEvaluation = model.getValue(entryArrayList.get(index)[valueIndex]);
-						System.out.println("the evaluation of the value is "+valueEvaluation);
+						//System.out.println("the evaluation of the value is "+valueEvaluation);
 						if (valueEvaluation == 0.0) {
 							//utilSpace.setUtility(issue, value, valueEvaluation);
-							System.out.println("we are finally in the value == 0");
-							valueEvaluation = 0.5 * averagePhi;					
+							//System.out.println("we are finally in the value == 0");
+							valueEvaluation = averagePhi;					
 						}
 						
 						
 						utilSpace.setUtility(issue, value,valueEvaluation);
-						System.out.println("We just set value "+value.getValue()+" to "+ 0.5*averagePhi);
+						//System.out.println("We just set value "+value.getValue()+" to "+ 0.5*averagePhi);
 						
-						System.out.println("Issue" + issue.convertToString() + "has a value" + value.getValue() + "with evaluation" + valueEvaluation);
+						//System.out.println("Issue" + issue.convertToString() + "has a value" + value.getValue() + "with evaluation" + valueEvaluation);
 					}
 					
 					
 					index++;
 				}
-				//This bit is just for testing, to be removed.
-					double estimatedMax = 0.0;
-					bestBid = bidRanking.getMaximalBid();
-					for (int i=0; i<numberIssues; i++) {
-						Issue issue = issueArray[i];
-						Value highestValue = bestBid.getValue(issue);
-						ValueDiscrete highestValueDiscrete = (ValueDiscrete) highestValue;
-						int highestValueIndex = Arrays.asList(valueArrayList.get(i)).indexOf(highestValueDiscrete);
-						estimatedMax += model.getValue(entryArrayList.get(i)[highestValueIndex]);
-					}
-				System.out.println("The max value is "+bidRanking.getHighUtility()+" and the calculated max value is "+ estimatedMax);
-				System.out.println("The estimated value of the max bid is "+utilSpace.getUtilitySpace().getUtility(bestBid));
+				
+				//System.out.println("The max value is "+bidRanking.getHighUtility()+" and the calculated max value is "+ estimatedMax);
+				//System.out.println("The estimated value of the max bid is "+utilSpace.getUtilitySpace().getUtility(bestBid));
 				return utilSpace.getUtilitySpace();
 			} else {
-				System.out.println("Model not solved");
+				//System.out.println("Model not solved");
 				return null;
 			}
 			
 		} catch (IloException ex) {
-			System.out.println("There's a problem. But where? Who knows?");
+			//System.out.println("There's a problem. But where? Who knows?");
 			ex.printStackTrace();
 			return null;
 		}
@@ -271,11 +270,11 @@ public abstract class group11_PU {
 	}
 	
 	public static AbstractUtilitySpace makeUtilitySpace(Domain domain, AbstractUtilitySpace utilitySpace, UserModel userModel) {
-		System.out.println("we are summoned");
+		//System.out.println("we are summoned");
 		if (userModel != null) {
 			return estimateUtilitySpace(domain,userModel);
 		} else {
-			System.out.println("It all goes wrong here");
+			//System.out.println("It all goes wrong here");
 			return utilitySpace;
 		}
 	}

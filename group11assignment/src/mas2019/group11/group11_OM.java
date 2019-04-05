@@ -17,6 +17,8 @@ import genius.core.issue.IssueDiscrete;
 import genius.core.issue.Objective;
 import genius.core.issue.Value;
 import genius.core.issue.ValueDiscrete;
+import genius.core.timeline.DiscreteTimeline;
+import genius.core.timeline.TimeLineInfo;
 import genius.core.utility.AdditiveUtilitySpace;
 import genius.core.utility.AbstractUtilitySpace;
 import genius.core.utility.Evaluator;
@@ -45,6 +47,11 @@ public class group11_OM extends OpponentModel {
 	private int amountOfIssues;
 	private double goldenValue;
 
+	TimeLineInfo timeline = null;
+	int totalRounds = 0;
+	int timePoint = 0;
+	
+	
 	@Override
 	public void init(NegotiationSession negotiationSession,
 			Map<String, Double> parameters) {
@@ -64,6 +71,9 @@ public class group11_OM extends OpponentModel {
 		 * weight, (therefore defining the maximum possible also).
 		 */
 		goldenValue = learnCoef / amountOfIssues;
+		timeline = negotiationSession.getTimeline();
+		totalRounds=(int)timeline.getTotalTime();
+		timePoint = (int)(0.8611*(double)totalRounds);
 
 		initializeModel();
 
@@ -109,7 +119,7 @@ public class group11_OM extends OpponentModel {
 					ValueDiscrete issuevalue = (ValueDiscrete) oppBid.getBid()
 							.getValue(issue.getNumber());
 					Integer eval = value.getEvaluationNotNormalized(issuevalue);
-					System.out.println("We're setting back the evaluation of this value from " + eval + " to 1.");
+					//System.out.println("We're setting back the evaluation of this value from " + eval + " to 1.");
 					value.setEvaluation(issuevalue, 1);
 				}
 			} catch (Exception ex) {
@@ -120,10 +130,10 @@ public class group11_OM extends OpponentModel {
 		 * because the opponent's later bids are probably more exploratory and therefore
 		 * less reliable.
 		 */
-		goldenValue *= Math.min(1.0, 1.0-((double)negotiationSession.getOpponentBidHistory().size()-155.0)/100.0);
+		goldenValue *= Math.min(1.0, 1.0-((double)negotiationSession.getOpponentBidHistory().size()-((double)timePoint)/100.0));
 		//System.out.println("The goldenValue is now "+ goldenValue);
-		if (negotiationSession.getOpponentBidHistory().size()>155) {
-			boolean val = new Random().nextInt((int)((200-negotiationSession.getOpponentBidHistory().size())/10))==0;
+		if (negotiationSession.getOpponentBidHistory().size()>timePoint) {
+			boolean val = new Random().nextInt((int)((totalRounds+20-negotiationSession.getOpponentBidHistory().size())/10))==0;
 			if (val == true) {
 				//System.out.println("We got there.");
 				learnValueAddition = 0;
@@ -203,7 +213,7 @@ public class group11_OM extends OpponentModel {
 
 	@Override
 	public String getName() {
-		return "HardHeaded Frequency Model adapted";
+		return "Dolos.OM";
 	}
 
 	@Override
